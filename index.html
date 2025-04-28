@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BabylonJS Rain and Grass</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+</head>
+
+<body>
+<canvas id="renderCanvas" style="width: 100%; height: 100%;"></canvas>
+
+<!-- Rain Vertex Shader -->
+<script id="vertexShaderCode" type="x-shader/x-vertex">
+precision highp float;
+
+attribute vec3 position;
+attribute vec2 uv;
+
+varying vec2 vUV;
+varying float vAlpha;
+
+uniform float time;
+uniform mat4 worldViewProjection;
+
+void main(void) {
+    vec3 pos = position;
+
+    // Move rain downward over time
+    pos.y -= mod(time * 2.0, 12.0);
+
+    // Wrap rain back to top if it falls too low
+    if (pos.y < -1.0) {
+        pos.y += 12.0;
+    }
+
+    // Set transparency outside of visible range
+    if (pos.y < 0.0 || pos.y > 10.0) {
+        vAlpha = 0.0;
+    } else {
+        vAlpha = 1.0;
+    }
+
+    vUV = uv;
+    gl_Position = worldViewProjection * vec4(pos, 1.0);
+}
+</script>
+
+<!-- Rain Fragment Shader -->
+<script id="fragmentShaderCode" type="x-shader/x-fragment">
+precision highp float;
+
+varying vec2 vUV;
+varying float vAlpha;
+
+uniform sampler2D textureSampler;
+
+void main(void) {
+    vec4 texColor = texture2D(textureSampler, vUV);
+
+    // Discard pixels outside the center circle
+    float dist = distance(vUV, vec2(0.5, 0.5));
+    if (dist > 0.5) discard;
+
+    // Tint rain blue
+    vec3 blueTint = vec3(0.5, 0.6, 1.0);
+    gl_FragColor = vec4(texColor.rgb * blueTint, texColor.a * vAlpha);
+}
+</script>
+
+<!-- Grass Vertex Shader -->
+<script id="grassVertexShaderCode" type="x-shader/x-vertex">
+precision highp float;
+
+attribute vec3 position;
+
+uniform float time;
+uniform mat4 worldViewProjection;
+
+void main(void) {
+    vec3 pos = position;
+
+    // Sway the upper parts of the grass blades
+    float sway = sin(time + pos.x * 5.0 + pos.z * 5.0) * 0.2 * pos.y;
+    pos.x += sway;
+
+    gl_Position = worldViewProjection * vec4(pos, 1.0);
+}
+</script>
+
+<!-- Grass Fragment Shader -->
+<script id="grassFragmentShaderCode" type="x-shader/x-fragment">
+precision highp float;
+
+void main(void) {
+    // Set grass color
+    gl_FragColor = vec4(0.1, 0.5, 0.1, 1.0);
+}
+</script>
+
+<!-- Main JavaScript -->
+<script>
+var canvas = document.getElementById("renderCanvas");
+var engine = new BABYLON.Engine(canvas, true);
+var rainSound;
+
+var createScene = function () {
+    var scene = new BABYLON.Scene(engine);
+
+    // Create camera
+    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -15), scene);
+    camera.setTarget(BABYLON.Vector3.Zero());
+    camera.attachControl(canvas, true);
+
+    // Create light
+    var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+    light.intensity = 0.7;
+
+    // Create ground and set brown color
+    var ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 20, height: 20}, scene);
+    var groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
+    groundMaterial.diffuseColor = new BABYLON.Color3(0.4, 0.26, 0.13);
+    ground.material = groundMaterial;
+
+    // Load rain sound
+    rainSound = new BABYLON.Sound("rain", "rainsounds.mp3", scene, null, {
+        loop: true,
+        autoplay: true,
+        volume: 0.9
+    });
+
+    // Create rain mesh
+    var rain = createRainMesh(scene);
+
+    // Create rain shader
+    var rainShaderMaterial = new BABYLON.ShaderMaterial("rainShader", scene, {
+        vertexSource: document.getElementById("vertexShaderCode").textContent,
+        fragmentSource: document.getElementById("fragmentShaderCode").textContent,
+    }, {
+        attributes: ["position", "uv"],
+        uniforms: ["worldViewProjection", "time", "textureSampler"],
+        needAlphaBlending: true
+    });
+    rainShaderMaterial.alpha = 0.5;
+    rain.material = rainShaderMaterial;
+
+    // Load raindrop texture
+    var raindropTexture = new BABYLON.Texture("raindrop.jpeg", scene);
+    rainShaderMaterial.setTexture("textureSampler", raindropTexture);
+
+    // Create grass mesh
+    var grass = createGrassMesh(scene);
+
+    // Create grass shader
+    var grassShaderMaterial = new BABYLON.ShaderMaterial("grassShader", scene, {
+        vertexSource: document.getElementById("grassVertexShaderCode").textContent,
+        fragmentSource: document.getElementById("grassFragmentShaderCode").textContent,
+    }, {
+        attributes: ["position"],
+        uniforms: ["worldViewProjection", "time"]
+    });
+    grass.material = grassShaderMaterial;
+
+    // Animate time for shaders
+    var startTime = Date.now();
+    scene.registerBeforeRender(function() {
+        var currentTime = (Date.now() - startTime) * 0.002;
+        rainShaderMaterial.setFloat("time", currentTime);
+        grassShaderMaterial.setFloat("time", currentTime);
+    });
+
+    return scene;
+};
+
+// Create rain triangles
+function createRainMesh(scene) {
+    var vertexData = new BABYLON.VertexData();
+    var positions = [], indices = [], uvs = [];
+    var index = 0;
+
+    for (var i = 0; i < 100; i++) {
+        var cx = Math.random() * 10 - 5;
+        var cy = Math.random() * 10;
+        var cz = Math.random() * 10 - 5;
+
+        var size = 0.14;
+
+        positions.push(cx, cy, cz);
+        positions.push(cx + size, cy, cz);
+        positions.push(cx, cy + size, cz);
+
+        uvs.push(0, 0);
+        uvs.push(1, 0);
+        uvs.push(0, 1);
+
+        indices.push(index, index + 1, index + 2);
+        index += 3;
+    }
+
+    vertexData.positions = positions;
+    vertexData.indices = indices;
+    vertexData.uvs = uvs;
+
+    var mesh = new BABYLON.Mesh("rainMesh", scene);
+    vertexData.applyToMesh(mesh, true);
+    return mesh;
+}
+
+// Create grass blades
+function createGrassMesh(scene) {
+    var vertexData = new BABYLON.VertexData();
+    var positions = [];
+    var indices = [];
+    var index = 0;
+
+    for (var i = 0; i < 22000; i++) {
+        var baseX = Math.random() * 20 - 10;
+        var baseZ = Math.random() * 20 - 10;
+        var height = 0.5 + Math.random() * 0.5;
+        var width = 0.05;
+
+        positions.push(baseX, 0, baseZ);
+        positions.push(baseX + width, 0, baseZ);
+        positions.push(baseX, height, baseZ);
+        positions.push(baseX + width, height, baseZ);
+
+        indices.push(index, index+1, index+2);
+        indices.push(index+1, index+3, index+2);
+        index += 4;
+    }
+
+    vertexData.positions = positions;
+    vertexData.indices = indices;
+
+    var mesh = new BABYLON.Mesh("grassMesh", scene);
+    vertexData.applyToMesh(mesh, true);
+    return mesh;
+}
+
+// Create and render scene
+var scene = createScene();
+engine.runRenderLoop(function() {
+    scene.render();
+});
+
+// Handle window resize
+window.addEventListener("resize", function() {
+    engine.resize();
+});
+
+// Play rain sound on user click
+window.addEventListener("click", function() {
+    if (rainSound && !rainSound.isPlaying) {
+        rainSound.play();
+    }
+});
+</script>
+
+</body>
+</html>
