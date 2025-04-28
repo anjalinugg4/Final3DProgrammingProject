@@ -68,33 +68,53 @@ void main(void) {
 
 <!-- Grass Vertex Shader -->
 <script id="grassVertexShaderCode" type="x-shader/x-vertex">
-precision highp float;
-
-attribute vec3 position;
-
-uniform float time;
-uniform mat4 worldViewProjection;
-
-void main(void) {
-    vec3 pos = position;
-
-    // Sway the upper parts of the grass blades
-    float sway = sin(time + pos.x * 5.0 + pos.z * 5.0) * 0.2 * pos.y;
-    pos.x += sway;
-
-    gl_Position = worldViewProjection * vec4(pos, 1.0);
-}
-</script>
+    precision highp float;
+    
+    attribute vec3 position;
+    
+    uniform float time;
+    uniform mat4 worldViewProjection;
+    uniform sampler2D noiseTexture;
+    
+    varying float vHeight; // pass height to fragment shader
+    
+    void main(void) {
+        vec3 pos = position;
+    
+        // Sample noise texture based on xz position
+        vec2 noiseUV = pos.xz * 0.1; // scale down noise lookup
+        float noise = texture2D(noiseTexture, noiseUV).r; // only need red channel
+    
+        // Add noise into the sway
+        float sway = sin(time + pos.x * 5.0 + pos.z * 5.0 + noise * 10.0) * 0.2 * pos.y;
+    
+        pos.x += sway;
+    
+        // Pass height to fragment shader
+        vHeight = pos.y;
+    
+        gl_Position = worldViewProjection * vec4(pos, 1.0);
+    }
+    </script>
+    
 
 <!-- Grass Fragment Shader -->
 <script id="grassFragmentShaderCode" type="x-shader/x-fragment">
-precision highp float;
-
-void main(void) {
-    // Set grass color
-    gl_FragColor = vec4(0.1, 0.5, 0.1, 1.0);
-}
-</script>
+    precision highp float;
+    
+    varying float vHeight;
+    
+    void main(void) {
+        // Dark green at bottom, lighter green at top
+        vec3 bottomColor = vec3(0.1, 0.4, 0.1); 
+        vec3 topColor = vec3(0.3, 0.7, 0.3); 
+    
+        // Mix color based on height
+        vec3 finalColor = mix(bottomColor, topColor, clamp(vHeight * 2.0, 0.0, 1.0));
+    
+        gl_FragColor = vec4(finalColor, 1.0);
+    }
+    </script>
 
 <!-- Main JavaScript -->
 <script>
