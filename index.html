@@ -8,7 +8,7 @@
 
   <body>
     <canvas id="renderCanvas" style="width: 100%; height: 100%"></canvas>
-
+    <audio id="ambientAudio" src="smooth-rain-on-grass-high-quality-176818.mp3" loop></audio>
     <!-- Rain Vertex Shader -->
     <script id="vertexShaderCode" type="x-shader/x-vertex">
             precision highp float;
@@ -387,6 +387,14 @@
           rainSound.play();
         }
       });
+       const ambient = document.getElementById('ambientAudio');
+    let started = false;
+    window.addEventListener('click', () => {
+      if (!started) {
+        ambient.play().catch(console.error);
+        started = true;
+      }
+    });
     </script>
   </body>
 </html>
