@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>BabylonJS Rain and Grass</title>
+    <!-- Load the Babylon.js library from CDN -->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
   </head>
 
@@ -10,7 +11,7 @@
 
     <!-- Rain Vertex Shader -->
     <script id="vertexShaderCode" type="x-shader/x-vertex">
-      precision highp float;
+            precision highp float;
 
       attribute vec3 position;
       attribute vec2 uv;
@@ -21,23 +22,23 @@
       uniform float time;
       uniform mat4 worldViewProjection;
 
-      void main(void) {
-          vec3 pos = position;
+            void main(void) {
+                vec3 pos = position;
 
-          // Move rain downward over time
-          pos.y -= mod(time * 2.0, 12.0);
+                // Move rain downward over time
+                pos.y -= mod(time * 2.0, 12.0);
 
-          // Wrap rain back to top if it falls too low
-          if (pos.y < -1.0) {
-              pos.y += 12.0;
-          }
+                // Wrap rain back to top if it falls too low
+                if (pos.y < -1.0) {
+                    pos.y += 12.0;
+                }
 
-          // Set transparency outside of visible range
-          if (pos.y < 0.0 || pos.y > 10.0) {
-              vAlpha = 0.0;
-          } else {
-              vAlpha = 1.0;
-          }
+                // Set transparency outside of visible range
+                if (pos.y < 0.0 || pos.y > 10.0) {
+                    vAlpha = 0.0;
+                } else {
+                    vAlpha = 1.0;
+                }
 
           vUV = uv;
           gl_Position = worldViewProjection * vec4(pos, 1.0);
@@ -48,22 +49,22 @@
     <script id="fragmentShaderCode" type="x-shader/x-fragment">
       precision highp float;
 
-      varying vec2 vUV;
-      varying float vAlpha;
+            varying vec2 vUV;
+            varying float vAlpha;
 
-      uniform sampler2D textureSampler;
+            uniform sampler2D textureSampler;
 
       void main(void) {
           vec4 texColor = texture2D(textureSampler, vUV);
 
-          // Discard pixels outside the center circle
-          float dist = distance(vUV, vec2(0.5, 0.5));
-          if (dist > 0.5) discard;
+                // Discard pixels outside the center circle
+                float dist = distance(vUV, vec2(0.5, 0.5));
+                if (dist > 0.5) discard;
 
-          // Tint rain blue
-          vec3 blueTint = vec3(0.5, 0.6, 1.0);
-          gl_FragColor = vec4(texColor.rgb * blueTint, texColor.a * vAlpha);
-      }
+                // Tint rain blue
+                vec3 blueTint = vec3(0.5, 0.6, 1.0);
+                gl_FragColor = vec4(texColor.rgb * blueTint, texColor.a * vAlpha);
+            }
     </script>
 
     <!-- Grass Vertex Shader -->
