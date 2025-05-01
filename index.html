@@ -8,7 +8,11 @@
 
   <body>
     <canvas id="renderCanvas" style="width: 100%; height: 100%"></canvas>
-    <audio id="ambientAudio" src="smooth-rain-on-grass-high-quality-176818.mp3" loop></audio>
+    <audio
+      id="ambientAudio"
+      src="smooth-rain-on-grass-high-quality-176818.mp3"
+      loop
+    ></audio>
     <!-- Rain Vertex Shader -->
     <script id="vertexShaderCode" type="x-shader/x-vertex">
             precision highp float;
@@ -26,7 +30,7 @@
                 vec3 pos = position;
 
                 // Move rain downward over time
-                pos.y -= mod(time * 2.0, 12.0);
+                pos.y -= mod(time * 6.5, 12.0);
 
                 // Wrap rain back to top if it falls too low
                 if (pos.y < -1.0) {
@@ -229,9 +233,9 @@
         var index = 0;
 
         for (var i = 0; i < 100; i++) {
-          var cx = Math.random() * 10 - 5;
-          var cy = Math.random() * 10;
-          var cz = Math.random() * 10 - 5;
+          var cx = Math.random() * 20 - 10;
+          var cy = Math.random() * 20;
+          var cz = Math.random() * 20 - 10;
 
           var size = 0.14;
 
@@ -387,14 +391,14 @@
           rainSound.play();
         }
       });
-       const ambient = document.getElementById('ambientAudio');
-    let started = false;
-    window.addEventListener('click', () => {
-      if (!started) {
-        ambient.play().catch(console.error);
-        started = true;
-      }
-    });
+      const ambient = document.getElementById("ambientAudio");
+      let started = false;
+      window.addEventListener("click", () => {
+        if (!started) {
+          ambient.play().catch(console.error);
+          started = true;
+        }
+      });
     </script>
   </body>
 </html>
