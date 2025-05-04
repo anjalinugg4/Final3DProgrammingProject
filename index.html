@@ -29,20 +29,12 @@
             void main(void) {
                 vec3 pos = position;
 
-                // Move rain downward over time
-                pos.y -= mod(time * 6.5, 12.0);
 
-                // Wrap rain back to top if it falls too low
-                if (pos.y < -1.0) {
-                    pos.y += 12.0;
-                }
-
-                // Set transparency outside of visible range
-                if (pos.y < 0.0 || pos.y > 10.0) {
-                    vAlpha = 0.0;
-                } else {
-                    vAlpha = 1.0;
-                }
+                //Move rain down and wrap if needed
+                pos.y = mod(pos.y - time * 6.5, 12.0);
+                pos.x += sin(time * 5.0 + pos.y) * 0.05;
+                vAlpha = step(0.0, pos.y) * step(pos.y, 10.0);
+                
 
           vUV = uv;
           gl_Position = worldViewProjection * vec4(pos, 1.0);
@@ -62,12 +54,12 @@
           vec4 texColor = texture2D(textureSampler, vUV);
 
                 // Discard pixels outside the center circle
-                float dist = distance(vUV, vec2(0.5, 0.5));
-                if (dist > 0.5) discard;
+                vec2 offset = vUV - vec2(0.5);
+                float distSq = dot(offset, offset);
+                if (distSq > 0.25) discard;
 
                 // Tint rain blue
-                vec3 blueTint = vec3(0.5, 0.6, 1.0);
-                gl_FragColor = vec4(texColor.rgb * blueTint, texColor.a * vAlpha);
+                gl_FragColor = vec4(texColor.rgb * vec3(0.5, 0.6, 1.0), texColor.a * vAlpha);
             }
     </script>
 
@@ -91,8 +83,7 @@
           float noise = texture2D(noiseTexture, noiseUV).r; // only need red channel
 
           // Add noise into the sway
-          float sway = sin(time + pos.x * 5.0 + pos.z * 5.0 + noise * 10.0) * 0.2 * pos.y;
-
+          float sway = sin(time + pos.x * 2.0 + pos.z * 2.0) * 0.15 * pos.y;
           pos.x += sway;
 
           // Pass height to fragment shader
@@ -110,11 +101,8 @@
 
       void main(void) {
           // Dark green at bottom, lighter green at top
-          vec3 bottomColor = vec3(0.1, 0.4, 0.1);
-          vec3 topColor = vec3(0.3, 0.7, 0.3);
-
-          // Mix color based on height
-          vec3 finalColor = mix(bottomColor, topColor, clamp(vHeight * 2.0, 0.0, 1.0));
+          float mixFactor = clamp(vHeight * 2.0, 0.0, 1.0);
+          vec3 finalColor = mix(vec3(0.1, 0.4, 0.1), vec3(0.3, 0.7, 0.3), mixFactor);
 
           gl_FragColor = vec4(finalColor, 1.0);
       }
@@ -158,6 +146,7 @@
         );
         groundMaterial.diffuseColor = new BABYLON.Color3(0.4, 0.26, 0.13);
         ground.material = groundMaterial;
+        ground.freezeWorldMatrix();
 
         // Load rain sound
         rainSound = new BABYLON.Sound("rain", "rainsounds.mp3", scene, null, {
@@ -186,7 +175,11 @@
           }
         );
         rainShaderMaterial.alpha = 0.5;
+        rainShaderMaterial.backFaceCulling = true;
+        rainShaderMaterial.freeze();
         rain.material = rainShaderMaterial;
+        rain.freezeWorldMatrix();
+
 
         // Load raindrop texture
         var raindropTexture = new BABYLON.Texture("raindrop.jpeg", scene);
@@ -194,7 +187,7 @@
 
         // Create grass mesh
         //var grass = createGrassMesh(scene);
-        var grass = createGrassField(scene, 8000, 10);
+        var grass = createGrassField(scene, 6000, 10);
 
         // Create grass shader
         var grassShaderMaterial = new BABYLON.ShaderMaterial(
@@ -211,6 +204,8 @@
             uniforms: ["worldViewProjection", "time"],
           }
         );
+        grassShaderMaterial.backFaceCulling = true;
+        grassShaderMaterial.freeze();
         grass.material = grassShaderMaterial;
 
         // Animate time for shaders
@@ -240,8 +235,8 @@
           var size = 0.14;
 
           positions.push(cx, cy, cz);
-          positions.push(cx + size, cy, cz);
-          positions.push(cx, cy + size, cz);
+          positions.push(cx + size*0.5, cy, cz);
+          positions.push(cx, cy + size*3, cz);
 
           uvs.push(0, 0);
           uvs.push(1, 0);
@@ -369,6 +364,7 @@
         vertexData.indices = indices;
 
         var grassField = new BABYLON.Mesh("grassField", scene);
+        grassField.freezeWorldMatrix();
         vertexData.applyToMesh(grassField, true);
 
         return grassField;
@@ -376,9 +372,13 @@
 
       // Create and render scene
       var scene = createScene();
+
+      engine.setHardwareScalingLevel(1);
       engine.runRenderLoop(function () {
         scene.render();
       });
+      scene.freezeActiveMeshes();
+
 
       // Handle window resize
       window.addEventListener("resize", function () {
